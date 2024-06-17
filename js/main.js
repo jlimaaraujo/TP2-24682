@@ -147,6 +147,7 @@ function setupBalloons() {
         callback: function () {
             if (!gameOver && this.timer > 10) {
                 createRedBalloon(this);
+                createBlueBalloon(this);
             }
         },
         callbackScope: this,
@@ -171,6 +172,7 @@ function setupBalloons() {
         callback: function () {
             if (!gameOver && this.timer > 30) {
                 createWhiteBalloon(this);
+                createRedBalloon(this);
             }
         },
         callbackScope: this,

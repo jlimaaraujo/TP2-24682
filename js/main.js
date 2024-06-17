@@ -20,15 +20,21 @@ const config = {
 
 
 const game = new Phaser.Game(config);
+
+
 var background;
 var balloons;
 var eKey;
+var rKey;
 let needle;
 var blue_balloon;
 var gameOver = false;
 let isPaused = false;
 var timerEvent;
-
+var popSound;
+var bombSound;
+var loseSound;
+var gameOverSound;
 
 function preload() {
     this.load.image('background', 'assets/background.webp');
@@ -39,10 +45,16 @@ function preload() {
     this.load.image('explosion', 'assets/explosion.png');
     this.load.image('bomb', 'assets/bomb.png');
 
+    this.popSound = this.load.audio('pop', 'assets/ballon_pop.wav');
+    this.bombSound = this.load.audio('bomb', 'assets/bomb_pop.wav');
+    this.loseSound = this.load.audio('lose', 'assets/lose_life.wav');
+    this.gameOverSound = this.load.audio('gameOver', 'assets/game_over.wav');
+
     this.load.script('webfont', 'https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js');
 }
 
 function create() {
+    gameOver = false;
     setupBackground.call(this);
     setupKeyboard.call(this);
     setupUI.call(this);
@@ -52,8 +64,8 @@ function create() {
 
     WebFont.load({
         custom: {
-            families: ['Stopbuck'], // Nome da fonte
-            urls: ['/fonts/styles.css'] // Caminho para o arquivo de fonte
+            families: ['Stopbuck'],
+            urls: ['/fonts/styles.css'] 
         },
         active: function() {
             // Aplicar a fonte carregada aos textos
@@ -63,6 +75,10 @@ function create() {
         }.bind(this)
     });
 
+    popSound = this.sound.add('pop');
+    bombSound = this.sound.add('bomb');
+    loseSound = this.sound.add('lose');
+    gameOverSound = this.sound.add('gameOver');
 }
 
 function setupBackground() {
@@ -71,6 +87,7 @@ function setupBackground() {
 
 function setupKeyboard() {
     this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 
     this.input.keyboard.on('keydown-E', function (event) {
         if (gameOver) return; // Não faz nada se o jogo terminou
@@ -80,18 +97,23 @@ function setupKeyboard() {
                 showExplosion.call(this, balloon.x, balloon.y); // Adiciona a explosão
                 if (balloon.texture.key === 'blue_balloon') {
                     balloon.destroy();
+                    popSound.play();
                     updateScore.call(this, 2);
                 } else if (balloon.texture.key === 'red_balloon') {
                     balloon.destroy();
+                    popSound.play();
                     updateScore.call(this, 3);
                 } else if (balloon.texture.key === 'purple_balloon') {
                     balloon.destroy();
+                    popSound.play();
                     updateScore.call(this, 5);
                 } else if (balloon.texture.key === 'white_balloon') {
                     balloon.destroy();
+                    popSound.play();
                     updateScore.call(this, 10);
                 } else if (balloon.texture.key === 'bomb') {
                     balloon.destroy();
+                    bombSound.play();
                     loseLife.call(this);
                 }
             }
@@ -213,9 +235,9 @@ function setupUI() {
     this.timer = 0;
     this.lives = 3;
 
-    this.scoreText = this.add.text(16, 16, '<Score: 0>', { fontSize: '32px', fill: '#000'});
-    this.timerText = this.add.text(16, 50, 'Time: 0', { fontSize: '32px', fill: '#000' });
-    this.livesText = this.add.text(16, 84, 'Lives: 3', { fontSize: '32px', fill: '#000' });
+    this.scoreText = this.add.text(20, 16, '<Score: 0>', { fontSize: '32px', fill: '#000'});
+    this.timerText = this.add.text(630, 16, '<Time: 0>', { fontSize: '32px', fill: '#000' });
+    this.livesText = this.add.text(330, 16, '<Lives: 3>', { fontSize: '32px', fill: '#000' });
 
     // Atualiza o cronômetro a cada segundo
     this.time.addEvent({
@@ -234,7 +256,7 @@ function updateScore(points) {
 function updateTimer() {
     if (!gameOver) {
         this.timer++;
-        this.timerText.setText('Time: ' + this.timer);
+        this.timerText.setText('<Time: ' + this.timer + '>');
     }
 }
 
@@ -253,7 +275,7 @@ function showExplosion(x, y) {
 
 function loseLife() {
     this.lives--;
-    this.livesText.setText('Lives: ' + this.lives);
+    this.livesText.setText('<Lives: ' + this.lives + '>');
 
     // Create a semi-transparent red rectangle
     let redFlash = this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0xff0000);
@@ -277,12 +299,19 @@ function loseLife() {
     if (this.lives <= 0) {
         gameOver = true;
         this.physics.pause();
-        this.add.text(400, 300, 'Game Over', { fontSize: '64px', fill: '#f00' }).setOrigin(0.5);
+    
+        // Add a semi-transparent black background
+        let background = this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x000000);
+        background.setOrigin(0, 0);
+        background.setAlpha(0.5);
+    
+        this.add.text(400, 300, '<Game Over>', { fontSize: '64px', fill: '#f00', fontFamily: 'Stopbuck' }).setOrigin(0.5);
+        gameOverSound.play();
     }
 }
 
 function update() {
-    if (gameOver && this.eKey.isDown){
+    if (gameOver && this.rKey.isDown){
         this.scene.restart();
     }
 
@@ -291,6 +320,7 @@ function update() {
         if (balloon && balloon.y < 0) {
             if (balloon.texture.key !== 'bomb') { 
                 loseLife.call(this); 
+                loseSound.play();
             }
             balloon.destroy();
         }

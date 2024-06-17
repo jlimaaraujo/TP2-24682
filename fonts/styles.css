@@ -1,0 +1,9 @@
+@font-face {
+    font-family: 'Stopbuck';
+    src: url('../fonts/Stopbuck.ttf') format('truetype'),
+        url('../fonts/Stopbuck.otf') format('opentype');
+}
+
+body {
+    font-family: 'Stopbuck', sans-serif;
+}

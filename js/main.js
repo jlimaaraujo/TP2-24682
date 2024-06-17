@@ -10,81 +10,110 @@ const config = {
         }
     },
     scene: {
+        key: 'arcade',
         preload: preload,
         create: create,
         update: update
     }
 };
 
+
+
 const game = new Phaser.Game(config);
 var background;
 var balloons;
 var eKey;
 let needle;
+var blue_balloon;
+var gameOver = false;
+let isPaused = false;
+var timerEvent;
 
 
 function preload() {
     this.load.image('background', 'assets/background.webp');
-    this.load.image('blue-balloon', 'assets/blue-balloon.png');
-    this.load.image('red-balloon', 'assets/red-balloon.png');
-    this.load.image('purple-balloon', 'assets/purple-balloon.png');
-    this.load.image('white-balloon', 'assets/white-balloon.png');
+    this.load.image('blue_balloon', 'assets/blue-balloon.png');
+    this.load.image('red_balloon', 'assets/red-balloon.png');
+    this.load.image('purple_balloon', 'assets/purple-balloon.png');
+    this.load.image('white_balloon', 'assets/white-balloon.png');
     this.load.image('explosion', 'assets/explosion.png');
     this.load.image('bomb', 'assets/bomb.png');
-}
 
+    this.load.script('webfont', 'https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js');
+}
 
 function create() {
     setupBackground.call(this);
     setupKeyboard.call(this);
-    setupBalloons.call(this);
     setupUI.call(this);
+    this.balloons = this.physics.add.group();
+    setupBalloons.call(this);
+    setupBomb.call(this);
+
+    WebFont.load({
+        custom: {
+            families: ['Stopbuck'], // Nome da fonte
+            urls: ['/fonts/styles.css'] // Caminho para o arquivo de fonte
+        },
+        active: function() {
+            // Aplicar a fonte carregada aos textos
+            this.scoreText.setFontFamily('Stopbuck');
+            this.timerText.setFontFamily('Stopbuck');
+            this.livesText.setFontFamily('Stopbuck');
+        }.bind(this)
+    });
+
 }
 
 function setupBackground() {
     this.background = this.add.image(400, 300, 'background').setScale(2);
 }
 
-// metodo para configurar o teclado
 function setupKeyboard() {
     this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
     this.input.keyboard.on('keydown-E', function (event) {
+        if (gameOver) return; // Não faz nada se o jogo terminou
         const pointer = this.input.activePointer;
         this.balloons.children.iterate(function (balloon) {
             if (balloon.getBounds().contains(pointer.x, pointer.y)) {
                 showExplosion.call(this, balloon.x, balloon.y); // Adiciona a explosão
-                if (balloon.texture.key === 'blue-balloon') {
+                if (balloon.texture.key === 'blue_balloon') {
                     balloon.destroy();
                     updateScore.call(this, 2);
-                } else if (balloon.texture.key === 'red-balloon') {
+                } else if (balloon.texture.key === 'red_balloon') {
                     balloon.destroy();
                     updateScore.call(this, 3);
-                } else if (balloon.texture.key === 'purple-balloon') {
+                } else if (balloon.texture.key === 'purple_balloon') {
                     balloon.destroy();
                     updateScore.call(this, 5);
-                } else if (balloon.texture.key === 'white-balloon') {
+                } else if (balloon.texture.key === 'white_balloon') {
                     balloon.destroy();
                     updateScore.call(this, 10);
                 } else if (balloon.texture.key === 'bomb') {
-                    //end game or remove life
                     balloon.destroy();
                     loseLife.call(this);
                 }
             }
         }, this);
     }, this);
+
+    var scene = this;
+
+    this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+
+    this.rKey.on('down', function() {
+        // Reset do jogo
+        this.scene.restart();
+    }, this);
 }
 
-// metodo para configurar os balões
 function setupBalloons() {
-    this.balloons = this.physics.add.group();
-
     // Adiciona balões azuis continuamente
     this.time.addEvent({
         delay: 750,
         callback: function () {
-            createBlueBalloon(this);
+            if (!gameOver) createBlueBalloon(this);
         },
         callbackScope: this,
         loop: true
@@ -94,7 +123,7 @@ function setupBalloons() {
     this.time.addEvent({
         delay: 2000,
         callback: function () {
-            if (this.timer > 10) {
+            if (!gameOver && this.timer > 10) {
                 createRedBalloon(this);
             }
         },
@@ -106,7 +135,7 @@ function setupBalloons() {
     this.time.addEvent({
         delay: 2500,
         callback: function () {
-            if (this.timer > 20) {
+            if (!gameOver && this.timer > 20) {
                 createPurpleBalloon(this);
             }
         },
@@ -118,42 +147,38 @@ function setupBalloons() {
     this.time.addEvent({
         delay: 3500,
         callback: function () {
-            if (this.timer > 30) {
+            if (!gameOver && this.timer > 30) {
                 createWhiteBalloon(this);
             }
         },
         callbackScope: this,
         loop: true
     });
+}
 
+function setupBomb() {
     // Adiciona bombas continuamente
     this.time.addEvent({
         delay: 5000,
         callback: function () {
-            createBomb(this);
-            
+            if (!gameOver) createBomb(this);
         },
         callbackScope: this,
         loop: true
     });
 }
 
-// metodo para criar balões
 function createBlueBalloon(scene) {
     const x_blue = Phaser.Math.Between(50, 750);
-    const blue_balloon = scene.balloons.create(x_blue, 600, 'blue-balloon');
-
+    const blue_balloon = scene.balloons.create(x_blue, 600, 'blue_balloon');
     blue_balloon.setVelocityY(-100);
     blue_balloon.setInteractive();
     blue_balloon.setScale(0.2);
-
-    //remove life if balloon is not clicked and goes out of screeneeeeeeee
 }
 
 function createRedBalloon(scene) {
     const x_red = Phaser.Math.Between(50, 750);
-    const red_balloon = scene.balloons.create(x_red, 600, 'red-balloon');
-
+    const red_balloon = scene.balloons.create(x_red, 600, 'red_balloon');
     red_balloon.setVelocityY(-200);
     red_balloon.setInteractive();
     red_balloon.setScale(0.15);
@@ -161,8 +186,7 @@ function createRedBalloon(scene) {
 
 function createPurpleBalloon(scene) {
     const x_purple = Phaser.Math.Between(50, 750);
-    const purple_balloon = scene.balloons.create(x_purple, 600, 'purple-balloon');
-
+    const purple_balloon = scene.balloons.create(x_purple, 600, 'purple_balloon');
     purple_balloon.setVelocityY(-250);
     purple_balloon.setInteractive();
     purple_balloon.setScale(0.2);
@@ -170,18 +194,15 @@ function createPurpleBalloon(scene) {
 
 function createWhiteBalloon(scene) {
     const x_white = Phaser.Math.Between(50, 750);
-    const white_balloon = scene.balloons.create(x_white, 600, 'white-balloon');
-
+    const white_balloon = scene.balloons.create(x_white, 600, 'white_balloon');
     white_balloon.setVelocityY(-300);
     white_balloon.setInteractive();
     white_balloon.setScale(0.2);
-
 }
 
 function createBomb(scene) {
     const x_bomb = Phaser.Math.Between(50, 750);
     const bomb = scene.balloons.create(x_bomb, 600, 'bomb');
-
     bomb.setVelocityY(-225);
     bomb.setInteractive();
     bomb.setScale(0.25);
@@ -192,7 +213,7 @@ function setupUI() {
     this.timer = 0;
     this.lives = 3;
 
-    this.scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#000' });
+    this.scoreText = this.add.text(16, 16, '<Score: 0>', { fontSize: '32px', fill: '#000'});
     this.timerText = this.add.text(16, 50, 'Time: 0', { fontSize: '32px', fill: '#000' });
     this.livesText = this.add.text(16, 84, 'Lives: 3', { fontSize: '32px', fill: '#000' });
 
@@ -207,12 +228,14 @@ function setupUI() {
 
 function updateScore(points) {
     this.score += points;
-    this.scoreText.setText('Score: ' + this.score);
+    this.scoreText.setText('<Score: ' + this.score + '>');
 }
 
 function updateTimer() {
-    this.timer++;
-    this.timerText.setText('Time: ' + this.timer);
+    if (!gameOver) {
+        this.timer++;
+        this.timerText.setText('Time: ' + this.timer);
+    }
 }
 
 function showExplosion(x, y) {
@@ -252,11 +275,24 @@ function loseLife() {
     });
 
     if (this.lives <= 0) {
-        // Lógica para fim de jogo
+        gameOver = true;
         this.physics.pause();
         this.add.text(400, 300, 'Game Over', { fontSize: '64px', fill: '#f00' }).setOrigin(0.5);
     }
 }
 
 function update() {
+    if (gameOver && this.eKey.isDown){
+        this.scene.restart();
+    }
+
+    // Verifica se algum balão saiu do ecrã
+    this.balloons.children.iterate(function (balloon) {
+        if (balloon && balloon.y < 0) {
+            if (balloon.texture.key !== 'bomb') { 
+                loseLife.call(this); 
+            }
+            balloon.destroy();
+        }
+    }, this);
 }

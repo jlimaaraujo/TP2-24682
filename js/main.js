@@ -17,8 +17,6 @@ const config = {
     }
 };
 
-
-
 const game = new Phaser.Game(config);
 
 
@@ -31,6 +29,7 @@ let needle;
 var blue_balloon;
 var gameOver = false;
 let isPaused = false;
+var gameStarted = false;
 var timerEvent;
 var popSound;
 var bombSound;
@@ -40,6 +39,9 @@ let poppedBallons = [];
 var comboText;
 var combo = 0;
 var scoreText;
+var spaceText;
+var topScoresText;
+var topScores = [];
 
 
 function preload() {
@@ -61,31 +63,84 @@ function preload() {
 
 function create() {
     gameOver = false;
+    gameStarted = false;
     setupBackground.call(this);
     setupKeyboard.call(this);
     setupUI.call(this);
     this.balloons = this.physics.add.group();
     setupBalloons.call(this);
     setupBomb.call(this);
-
+    
     WebFont.load({
         custom: {
             families: ['Stopbuck'],
-            urls: ['/fonts/styles.css'] 
+            urls: ['/fonts/styles.css']
         },
-        active: function() {
+        active: function () {
             // Aplicar a fonte carregada aos textos
             this.scoreText.setFontFamily('Stopbuck');
             this.timerText.setFontFamily('Stopbuck');
             this.livesText.setFontFamily('Stopbuck');
         }.bind(this)
     });
-
+    
     popSound = this.sound.add('pop', { volume: 0.5 });
     bombSound = this.sound.add('bomb', { volume: 0.2 });
     loseSound = this.sound.add('lose');
     gameOverSound = this.sound.add('gameOver');
+
+    createMenu.call(this);
 }
+
+function createMenu() {
+    menu = this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x000000);
+    menu.setOrigin(0, 0);
+    menu.alpha = 0.5;
+
+    spaceText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'Press SPACE to start', { fontFamily: 'Stopbuck', fontSize: '32px', color: '#ffffff' });
+    spaceText.setOrigin(0.5, 0.5);
+
+    topScoresText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY + 50, 'Top Scores', { fontFamily: 'Stopbuck', fontSize: '32px', color: '#ffffff' });
+    topScoresText.setOrigin(0.5, 0.5);
+
+    // Obtém os top 10 scores do localStorage
+    let topScores = JSON.parse(localStorage.getItem('topScores')) || [];
+    let topScoresTexts = []; 
+
+    for (let i = 0; i < topScores.length; i++) {
+        let scoreText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY + 80 + (i * 20), `${i + 1}. ${topScores[i]}`, { fontFamily: 'Stopbuck', fontSize: '20px', color: '#ffffff' });
+        scoreText.setOrigin(0.5, 0.5);
+        topScoresTexts.push(scoreText); // Armazena a referência do texto no array
+    }
+
+    this.input.keyboard.on('keydown-SPACE', function () {
+        if (gameOver) {
+            saveScore(this.score);
+            this.scene.restart();
+        } else {
+            menu.destroy();
+            spaceText.destroy();
+            topScoresText.destroy();
+
+            for (let i = 0; i < topScoresTexts.length; i++) {
+                topScoresTexts[i].destroy();
+            }
+
+            gameStarted = true;
+            startGame.call(this);
+        }
+    }, this);
+
+    this.input.keyboard.on('keydown-R', function () {
+        saveScore(this.score);
+
+        this.scene.restart();
+
+        gameStarted = false;
+        createMenu.call(this);
+    }, this);
+}
+
 
 function setupBackground() {
     this.background = this.add.image(400, 300, 'background').setScale(2);
@@ -125,35 +180,33 @@ function setupKeyboard() {
                     balloon.destroy();
                     bombSound.play();
                     loseLife.call(this);
-                }            
+                }
             }
         }, this);
     }, this);
     var scene = this;
     this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 
-    this.rKey.on('down', function() {
-        // Reset do jogo
+    // Reiniciar jogo
+    this.rKey.on('down', function () {
         this.scene.restart();
     }, this);
 }
 
 function setupBalloons() {
-    // Adiciona balões azuis continuamente
     this.time.addEvent({
         delay: 750,
         callback: function () {
-            if (!gameOver) createBlueBalloon(this);
+            if (!gameOver && gameStarted) createBlueBalloon(this);
         },
         callbackScope: this,
         loop: true
     });
 
-    // Adiciona balões vermelhos continuamente
     this.time.addEvent({
         delay: 2000,
         callback: function () {
-            if (!gameOver && this.timer > 10) {
+            if (!gameOver && gameStarted && this.timer > 10) {
                 createRedBalloon(this);
             }
         },
@@ -161,11 +214,10 @@ function setupBalloons() {
         loop: true
     });
 
-    // Adiciona balões roxos continuamente
     this.time.addEvent({
         delay: 2500,
         callback: function () {
-            if (!gameOver && this.timer > 20) {
+            if (!gameOver && gameStarted && this.timer > 20) {
                 createPurpleBalloon(this);
             }
         },
@@ -173,11 +225,10 @@ function setupBalloons() {
         loop: true
     });
 
-    // Adiciona balões brancos continuamente
     this.time.addEvent({
         delay: 3500,
         callback: function () {
-            if (!gameOver && this.timer > 30) {
+            if (!gameOver && gameStarted && this.timer > 30) {
                 createWhiteBalloon(this);
                 createRedBalloon(this);
             }
@@ -188,11 +239,10 @@ function setupBalloons() {
 }
 
 function setupBomb() {
-    // Adiciona bombas continuamente
     this.time.addEvent({
         delay: 5000,
         callback: function () {
-            if (!gameOver) createBomb(this);
+            if (!gameOver && gameStarted) createBomb(this);
         },
         callbackScope: this,
         loop: true
@@ -231,7 +281,6 @@ function createWhiteBalloon(scene) {
     white_balloon.setScale(0.2);
 }
 
-// Quando um balão é estourado, adicione seu tipo ao array
 function popBalloon(scene, balloonType) {
     const lastBalloonType = poppedBallons[poppedBallons.length - 1];
 
@@ -245,11 +294,11 @@ function popBalloon(scene, balloonType) {
 
     if (combo > 1) {
         if (comboText) comboText.destroy();
-        comboText = scene.add.text(400, 100, 'X' + combo, { fontSize: '48px', fill: '#ff0', fontFamily:'StopBuck' }).setOrigin(0.5);
+        comboText = scene.add.text(400, 100, 'X' + combo, { fontSize: '48px', fill: '#ff0', fontFamily: 'StopBuck' }).setOrigin(0.5);
 
         scene.time.addEvent({
             delay: 1000,
-            callback: function() {
+            callback: function () {
                 comboText.destroy();
             },
             callbackScope: scene
@@ -270,11 +319,11 @@ function setupUI() {
     this.timer = 0;
     this.lives = 3;
 
-    this.scoreText = this.add.text(20, 16, '<Score: 0>', { fontSize: '32px', fill: '#000'});
+    this.scoreText = this.add.text(20, 16, '<Score: 0>', { fontSize: '32px', fill: '#000' });
     this.timerText = this.add.text(630, 16, '<Time: 0>', { fontSize: '32px', fill: '#000' });
     this.livesText = this.add.text(330, 16, '<Lives: 3>', { fontSize: '32px', fill: '#000' });
 
-    // Atualiza o cronômetro a cada segundo
+    // Atualiza o timer a cada segundo
     this.time.addEvent({
         delay: 1000,
         callback: updateTimer,
@@ -293,7 +342,7 @@ function updateScore(points) {
 }
 
 function updateTimer() {
-    if (!gameOver) {
+    if (!gameOver && gameStarted) {
         this.timer++;
         this.timerText.setText('<Time: ' + this.timer + '>');
     }
@@ -302,7 +351,7 @@ function updateTimer() {
 function showExplosion(x, y) {
     const explosion = this.add.image(x, y, 'explosion').setScale(0.1);
 
-    // Remove a imagem de explosão após um curto período
+    // Remove a imagem de explosão após 100ms
     this.time.addEvent({
         delay: 100,
         callback: function () {
@@ -316,13 +365,12 @@ function loseLife() {
     this.lives--;
     this.livesText.setText('<Lives: ' + this.lives + '>');
 
-    // Create a semi-transparent red rectangle
     let redFlash = this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0xff0000);
     redFlash.setAlpha(0.5);
     redFlash.setOrigin(0, 0);
     redFlash.setDepth(9999);
 
-    // Create a tween to pulse the red rectangle
+    // Animação de flash vermelho
     this.tweens.add({
         targets: redFlash,
         alpha: { from: 0.5, to: 0 },
@@ -338,27 +386,31 @@ function loseLife() {
     if (this.lives <= 0) {
         gameOver = true;
         this.physics.pause();
-    
-        // Add a semi-transparent black background
+
         let background = this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x000000);
         background.setOrigin(0, 0);
         background.setAlpha(0.5);
-    
+
         this.add.text(400, 300, '<Game Over>', { fontSize: '64px', fill: '#f00', fontFamily: 'Stopbuck' }).setOrigin(0.5);
         gameOverSound.play();
     }
 }
 
-function update() {
-    if (gameOver && this.rKey.isDown){
-        this.scene.restart();
-    }
+function saveScore(score) {
+    let scores = JSON.parse(localStorage.getItem('topScores')) || [];
+    scores.push(score);
+    scores.sort((a, b) => b - a);
+    scores = scores.slice(0, 10); // Mantém apenas os top 10 scores
+    localStorage.setItem('topScores', JSON.stringify(scores));
+}
 
+
+function update() {
     // Verifica se algum balão saiu do ecrã
     this.balloons.children.iterate(function (balloon) {
         if (balloon && balloon.y < 0) {
-            if (balloon.texture.key !== 'bomb') { 
-                loseLife.call(this); 
+            if (balloon.texture.key !== 'bomb') {
+                loseLife.call(this);
                 loseSound.play();
             }
             balloon.destroy();

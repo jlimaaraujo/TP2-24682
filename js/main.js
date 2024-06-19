@@ -24,6 +24,7 @@ const game = new Phaser.Game(config);
 
 var background;
 var balloons;
+var balloon;
 var eKey;
 var rKey;
 let needle;
@@ -35,6 +36,11 @@ var popSound;
 var bombSound;
 var loseSound;
 var gameOverSound;
+let poppedBallons = [];
+var comboText;
+var combo = 0;
+var scoreText;
+
 
 function preload() {
     this.load.image('background', 'assets/background.webp');
@@ -75,8 +81,8 @@ function create() {
         }.bind(this)
     });
 
-    popSound = this.sound.add('pop');
-    bombSound = this.sound.add('bomb');
+    popSound = this.sound.add('pop', { volume: 0.5 });
+    bombSound = this.sound.add('bomb', { volume: 0.2 });
     loseSound = this.sound.add('lose');
     gameOverSound = this.sound.add('gameOver');
 }
@@ -93,35 +99,37 @@ function setupKeyboard() {
         if (gameOver) return; // Não faz nada se o jogo terminou
         const pointer = this.input.activePointer;
         this.balloons.children.iterate(function (balloon) {
-            if (balloon.getBounds().contains(pointer.x, pointer.y)) {
+            if (balloon && balloon.getBounds().contains(pointer.x, pointer.y)) {
                 showExplosion.call(this, balloon.x, balloon.y); // Adiciona a explosão
                 if (balloon.texture.key === 'blue_balloon') {
                     balloon.destroy();
                     popSound.play();
                     updateScore.call(this, 2);
+                    popBalloon(this, 'blue_balloon');
                 } else if (balloon.texture.key === 'red_balloon') {
                     balloon.destroy();
                     popSound.play();
                     updateScore.call(this, 3);
+                    popBalloon(this, 'red_balloon');
                 } else if (balloon.texture.key === 'purple_balloon') {
                     balloon.destroy();
                     popSound.play();
                     updateScore.call(this, 5);
+                    popBalloon(this, 'purple_balloon');
                 } else if (balloon.texture.key === 'white_balloon') {
                     balloon.destroy();
                     popSound.play();
                     updateScore.call(this, 10);
+                    popBalloon(this, 'white_balloon');
                 } else if (balloon.texture.key === 'bomb') {
                     balloon.destroy();
                     bombSound.play();
                     loseLife.call(this);
-                }
+                }            
             }
         }, this);
     }, this);
-
     var scene = this;
-
     this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 
     this.rKey.on('down', function() {
@@ -147,7 +155,6 @@ function setupBalloons() {
         callback: function () {
             if (!gameOver && this.timer > 10) {
                 createRedBalloon(this);
-                createBlueBalloon(this);
             }
         },
         callbackScope: this,
@@ -224,6 +231,32 @@ function createWhiteBalloon(scene) {
     white_balloon.setScale(0.2);
 }
 
+// Quando um balão é estourado, adicione seu tipo ao array
+function popBalloon(scene, balloonType) {
+    const lastBalloonType = poppedBallons[poppedBallons.length - 1];
+
+    if (lastBalloonType && lastBalloonType === balloonType) {
+        combo = 0;
+        poppedBallons = [];
+    } else {
+        combo++;
+        poppedBallons.push(balloonType);
+    }
+
+    if (combo > 1) {
+        if (comboText) comboText.destroy();
+        comboText = scene.add.text(400, 100, 'X' + combo, { fontSize: '48px', fill: '#ff0', fontFamily:'StopBuck' }).setOrigin(0.5);
+
+        scene.time.addEvent({
+            delay: 1000,
+            callback: function() {
+                comboText.destroy();
+            },
+            callbackScope: scene
+        });
+    }
+}
+
 function createBomb(scene) {
     const x_bomb = Phaser.Math.Between(50, 750);
     const bomb = scene.balloons.create(x_bomb, 600, 'bomb');
@@ -251,7 +284,11 @@ function setupUI() {
 }
 
 function updateScore(points) {
-    this.score += points;
+    if (combo > 1) {
+        this.score += points * combo;
+    } else {
+        this.score += points;
+    }
     this.scoreText.setText('<Score: ' + this.score + '>');
 }
 
